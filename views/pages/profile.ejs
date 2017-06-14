@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+    <% include ../partials/header.ejs %>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="page-header text-center">
+        <h1><span class="fa fa-anchor"></span> Sia3 Files </h1>
+        <% if (!consensus) { %>
+            <h2><span class="text-danger"></span> Unable to Get Sync Status, App Is Disabled</h2>
+        <% } else if (consensus.synced) { %>
+            <h2><span class="text-success"></span> Synced </h2>
+        <% } else { %>
+            <h2><span class="text-danger"></span> Syncing, App Is Disabled</h2>
+        <% } %>
+        <div>
+            <span class="glyphicon text-success glyphicon-cloud-upload"></span>
+            <div class="progress">
+              <div class="progress-bar" role="progressbar"></div>
+            </div>
+            <% if (syncing) { %>
+                <button class="btn btn-lg upload-btn disabled" type="button">Upload File</button>
+            <% } else { %>
+                <button class="btn btn-lg upload-btn" type="button">Upload File</button>
+            <% } %>
+        </div>
+        <input id="upload-input" type="file" name="uploads[]" multiple="multiple"></br>
+        <a href="/logout" class="btn btn-default btn-sm">Logout</a>
+    </div>
+    <div class="row">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Filename</th>
+                    <th>URL</th>
+                    <th>Size</th>
+                    <th>Remove</th>
+                </tr>
+            </thead>
+            <tbody>
+            <% if(!syncing && objects && Array.isArray(objects)) { %>
+            <% objects.forEach( function( object ){ %>
+                <% if (object.uploadComplete) { %>
+                    <tr>
+                        <td ><span class="glyphicon glyphicon-ok text-success"></span></td>
+                        <td ><%= object.filename %> </td>
+                        <td><a href="/objects/<%= object.hash %>/<%= object.filename %>">/objects/<%= object.hash %>/<%= object.filename %></a></td>
+                        <td class="bytes"><%= object.size %></td>
+                        <td ><button id="/objects/<%= object.hash %>/<%= object.filename %>" class="btn delete-btn" type="button"><span class="glyphicon glyphicon-remove text-danger"></span></button></td>
+                    </tr>
+                <% } else { %>
+                    <tr class="text-muted">
+                        <td ><span class="glyphicon glyphicon-time text-danger"></span></td>
+                        <td ><%= object.filename %> </td>
+                        <td>/objects/<%= object.hash %>/<%= object.filename %></td>
+                        <td class="bytes"><%= object.size %></td>
+                        <td ><button id="/objects/<%= object.hash %>/<%= object.filename %>" class='btn delete-btn' type="button"><span class="glyphicon glyphicon-remove text-danger"></span></button></td>
+                    </tr>
+                <% } %>
+                <% }); %>
+            <% }; %>
+            </tbody>
+        </table>
+    </div>
+    <div class="row">
+
+        <!-- LOCAL INFORMATION -->
+        <div class="col-sm-6">
+            <div class="well">
+                <h3><span class="fa fa-user"></span> Local</h3>
+
+                <% if (user.local.email) { %>
+                    <p>
+                        <strong>id</strong>: <%= user._id %><br>
+                        <strong>email</strong>: <%= user.local.email %><br>
+                    </p>
+                    
+                    <a href="/unlink/local" class="btn btn-default">Unlink</a>
+                <% } else { %>
+                    <a href="/connect/local" class="btn btn-default">Connect Local</a>
+                <% } %>
+
+            </div>
+        </div>
+
+        <!--<div class="col-sm-6">
+            <div class="well">
+                <h3 class="text-primary"><span class="fa fa-facebook"></span> Facebook</h3>
+
+                <% if (user.facebook.token) { %>
+                    <p>
+                        <strong>id</strong>: <%= user.facebook.id %><br>
+                        <strong>token</strong>: <%= user.facebook.token %><br>
+                        <strong>email</strong>: <%= user.facebook.email %><br>
+                        <strong>name</strong>: <%= user.facebook.name %><br>
+                    </p>
+
+                    <a href="/unlink/facebook" class="btn btn-primary">Unlink</a>
+                <% } else { %>
+                    <a href="/connect/facebook" class="btn btn-primary">Connect Facebook</a>
+                <% } %>
+
+            </div>
+        </div>
+    </div>
+    <div class="row">-->
+
+        <!--<div class="col-sm-6">
+            <div class="well">
+                <h3 class="text-info"><span class="fa fa-twitter"></span> Twitter</h3>
+
+                <% if (user.twitter.token) { %>
+                    <p>
+                        <strong>id</strong>: <%= user.twitter.id %><br>
+                        <strong>token</strong>: <%= user.twitter.token %><br>
+                        <strong>display name</strong>: <%= user.twitter.displayName %><br>
+                        <strong>username</strong>: <%= user.twitter.username %>
+                    </p>
+
+                    <a href="/unlink/twitter" class="btn btn-info">Unlink</a>
+                <% } else { %>
+                    <a href="/connect/twitter" class="btn btn-info">Connect Twitter</a>
+                <% } %>
+
+            </div>
+        </div>-->
+
+        <!-- GOOGLE INFORMATION -->
+        <div class="col-sm-6">
+            <div class="well">
+                <h3 class="text-danger"><span class="fa fa-google-plus"></span> Google+</h3>
+
+                <% if (user.google.token) { %>
+                    <p>
+                        <strong>id</strong>: <%= user.google.id %><br>
+                        <strong>email</strong>: <%= user.google.email %><br>
+                        <strong>name</strong>: <%= user.google.name %>
+                    </p>
+
+                    <a href="/unlink/google" class="btn btn-danger">Unlink</a>
+                <% } else { %>
+                    <a href="/connect/google" class="btn btn-danger">Connect Google</a>
+                <% } %>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center">
+        <p>Sia3.</p>
+    </div>
+
+</div>
+      <script src="javascript/upload.js"></script>
+      <script> 
+        function bytesToSize(bytes) {
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes == 0) return '0 Byte';
+            var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+        };
+         $( document ).ready(function() {
+            var elems = document.getElementsByClassName('bytes');
+            Array.prototype.forEach.call(elems, function( elem ) {
+                elem.innerHTML = bytesToSize(elem.innerHTML) 
+            });
+         });
+
+        </script>
+</body>
+</html>

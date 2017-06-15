@@ -1,14 +1,38 @@
-var config = {};
+const fs = require('fs');
+import axios from 'axios';
 
-config.mongo_db = process.env.MONGO_URL
-config.redis_url = process.env.REDIS_URL
-config.session_secret = process.env.SESSION_SECRET || 'asdpouiqwerlmxnclbhpoiquwerk'
+const config = {};
+
+config.mongo_db = process.env.MONGO_URL;
+config.redis_url = process.env.REDIS_URL;
+config.session_secret = process.env.SESSION_SECRET || 'asdpouiqwerlmxnclbhpoiquwerk';
 config.port = process.env.PORT || 8080;
-config.sia_password = process.env.SIA_PASSWORD
+config.sia_password = process.env.SIA_PASSWORD;
 config.google = {};
 
-config.google.client_id = process.env.GOOGLE_OAUTH_ID
-config.google.client_secret = process.env.GOOGLE_OAUTH_KEY
-config.google.callback_url = process.env.GOOGLE_OAUTH_CALLBACK
+config.google.client_id = process.env.GOOGLE_OAUTH_ID;
+config.google.client_secret = process.env.GOOGLE_OAUTH_KEY;
+config.google.callback_url = process.env.GOOGLE_OAUTH_CALLBACK;
+
+config.tmpDir = '/tmp/sia3';
+
+config.lruOptions = {
+    max: 1024 * 1024 * 1024 * 50, //should be 50Gb /shruggie
+    length: function (hash, file) { return file.size; },
+    dispose: function (hash) { fs.unlink(config.tmpDir + "/" + hash); }
+};
+
+config.siad = axios.create ({
+    baseURL: 'http://localhost:9980',
+    timeout: 120000,
+    json: true,
+    headers: {'User-Agent': 'Sia-Agent'}
+});
+
+config.sessionConfig = {
+    secret: config.session_secret, // session secret
+    resave: true,
+    saveUninitialized: true,
+};
 
 module.exports = config;

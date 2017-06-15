@@ -1,41 +1,31 @@
-var formidable = require('formidable');
-var File = require('../app/models/file');
-const fs = require('fs')
-var LRU = require("lru-cache")
-const tmpDir = '/tmp/sia3'
-const lruOptions = {
-    max: 1024 * 1024 * 1024 * 50, //should be 50Gb /shruggie
-    length: function (hash, file) { return file.size },
-    dispose: function (hash, file) { fs.unlink(tmpDir + "/" + hash) },
-    maxAge: 1000 * 60 * 60,
-    stale: true
-}
-const fileCache = LRU(lruOptions);
+const formidable = require('formidable');
+const File = require('../app/models/file');
+const config = require('../config');
+const fs = require('fs');
+const LRU = require("lru-cache");
+const fileCache = LRU(config.lruOptions);
 
-fs.readdir(tmpDir, (err, files) => {
-    files.forEach(file => {
-        console.log(file)
-        File.findOne({ 'hash': file }, (err, dbFile) => {
-            if (err) {
-                console.log("error scanning files", err)
-            } else {
-                fileCache.set(dbFile.hash, dbFile)
-            }
+module.exports = function (app, passport) {
+
+    fs.readdir(config.tmpDir, (err, files) => {
+        files.forEach(file => {
+            File.findOne({ 'hash': file }, (err, dbFile) => {
+                if (err || dbFile === null) {
+                    console.log("error scanning files", err);
+                } else {
+                    fileCache.set(dbFile.hash, dbFile);
+                }
+            });
         });
     });
-})
-
-var syncing = true;
-module.exports = function (app, passport, siad) {
-
-
+    
     // show the home page (will also have our login links)
     app.get('/', function (req, res) {
         res.render('pages/index.ejs');
     });
 
     app.get('/_ah', function (req, res) {
-        siad.get('/consensus').then((response) => {
+        config.siad.get('/consensus').then((response) => {
             if (response.data.synced) {
                 console.log("Consensus found");
                 res.end();
@@ -44,7 +34,7 @@ module.exports = function (app, passport, siad) {
                 res.write('Unknown error occurred retrieving file');
                 res.end();
             }
-        }).catch((err) => {
+        }).catch(() => {
             res.writeHead(503, 'Unknown');
             res.write('Unknown error occurred retrieving file');
             res.end();
@@ -53,11 +43,10 @@ module.exports = function (app, passport, siad) {
 
     // PROFILE SECTION =========================
     app.get('/profile', isLoggedIn, function (req, res) {
-        siad.get('/consensus').then((response) => {
-            var consensusResponse = response
-            siad.get('/renter/contracts').then((contractsResponse) => {
+        config.siad.get('/consensus').then((response) => {
+            var consensusResponse = response;
+            config.siad.get('/renter/contracts').then((contractsResponse) => {
                 if (contractsResponse.data.contracts && contractsResponse.data.contracts.length > 20) {
-                    syncing = false;
                     File.find({ 'owner': req.user.id }, function (err, files) {
                         if (err) {
                             console.log('An error has occured retrieving consensus: \n' + err);
@@ -67,7 +56,7 @@ module.exports = function (app, passport, siad) {
                             user: req.user,
                             consensus: consensusResponse.data,
                             objects: files,
-                            syncing: syncing && response.data.synced
+                            syncing: response.data.synced
                         });
                     });
                 } else {
@@ -79,23 +68,22 @@ module.exports = function (app, passport, siad) {
                     });
                 }
             }).catch((error) => {
-                console.log(error)
+                console.log(error);
                 res.render('pages/profile.ejs', {
                     user: req.user,
                     consensus: false,
                     syncing: true
                 });
-            })
+            });
 
         }).catch((error) => {
-            console.log(error)
-            syncing = true
+            console.log(error);
             res.render('pages/profile.ejs', {
                 user: req.user,
                 consensus: false,
-                syncing: syncing
+                syncing: true
             });
-        })
+        });
     });
 
     app.post('/objects', isLoggedIn, function (req, res) {
@@ -106,14 +94,21 @@ module.exports = function (app, passport, siad) {
         form.multiples = true;
 
         // store all uploads in the /uploads directory
-        form.uploadDir = tmpDir
+        form.uploadDir = config.tmpDir;
 
-        form.hash = 'md5'
+        form.hash = 'md5';
 
         // every time a file has been uploaded successfully,
         // rename it to it's orignal name
         form.on('file', function (field, file) {
             console.log('Got a file: ' + file.name + ". Hash: " + file.hash);
+            if (file.size > 1024*1024*1024) {
+                console.log('Cannot upload files > 1Gb' );   
+                res.writeHead(401, 'Unauthorized');
+                res.write('Cannot upload files >1Gb currently.');
+                res.end();
+                return;
+            }
             var newFile = new File();
             newFile.hash = file.hash;
             newFile.filename = file.name;
@@ -125,19 +120,19 @@ module.exports = function (app, passport, siad) {
                 }
                 return newFile;
             });
-            var newFilePath = tmpDir + "/" + newFile.hash
-            fs.rename(file.path, newFilePath)
+            var newFilePath = config.tmpDir + "/" + newFile.hash;
+            fs.rename(file.path, newFilePath);
             //upload file to sia
             console.log('Posting: ' + newFilePath);
-            console.log("To: " + '/renter/upload/' + req.user.id + "/" + newFile.hash)
-            fileCache.set(newFile.hash, newFile)
-            siad.post('/renter/upload/' + req.user.id + "/" + newFile.hash + "?source=" + newFilePath).then(function () {
+            console.log("To: " + '/renter/upload/' + req.user.id + "/" + newFile.hash);
+            fileCache.set(newFile.hash, newFile);
+            config.siad.post('/renter/upload/' + req.user.id + "/" + newFile.hash + "?source=" + newFilePath).then(function () {
                 console.log('Successfully added new file to SIA');
             }).catch(function (error) {
                 //TODO handle duplicate files etc...
-                console.log(error)
+                console.log(error);
                 console.log('An error has occured uploading file: \n' + error);
-            })
+            });
         });
 
         // log any errors that occur
@@ -151,7 +146,7 @@ module.exports = function (app, passport, siad) {
         });
 
         // parse the incoming request containing the form data
-        form.parse(req)
+        form.parse(req);
     });
 
     app.get('/objects', isLoggedIn, function (req, res) {
@@ -160,9 +155,9 @@ module.exports = function (app, passport, siad) {
                 console.log('An error has occured finding objects for user: \n' + err);
             }
             res.json(files.filter(function (file) {
-                return file.isAvailable(siad);
+                return file.isAvailable(config.siad);
             }));
-        })
+        });
     });
 
     app.get('/objects/:hash/:filename', isLoggedIn, function (req, res) {
@@ -171,11 +166,11 @@ module.exports = function (app, passport, siad) {
                 console.log('An error has occured' + err);
             }
 
-            if (file && (fileCache.get(file.hash) || file.isAvailable(siad))) {
-                const filePath = tmpDir + "/" + file.hash
-                console.log("Getting: " + '/renter/download/' + req.user.id + "/" + file.hash + "?destination=" + filePath)
+            if (file && (fileCache.get(file.hash) || file.isAvailable(config.siad))) {
+                const filePath = config.tmpDir + "/" + file.hash;
+                console.log("Getting: " + '/renter/download/' + req.user.id + "/" + file.hash + "?destination=" + filePath);
                 if (fileCache.get(file.hash)) {
-                    console.log("Cache hit for hash: " + filePath)
+                    console.log("Cache hit for hash: " + filePath);
                     var stream = fs.createReadStream(filePath);
                     stream.on('error', function () {
                         res.writeHead(503, 'Unknown');
@@ -185,12 +180,12 @@ module.exports = function (app, passport, siad) {
                     res.statusCode = 200;
                     res.set({
                         'Cache-Control': 'public, max-age=31557600',
-                    })
+                    });
                     stream.pipe(res);
                     console.log('Successfully retrieved file from SIA');
                 } else {
-                    console.log("Cache miss for hash: " + filePath)
-                    siad.get('/renter/download/' + req.user.id + "/" + file.hash + "?destination=" + filePath)
+                    console.log("Cache miss for hash: " + filePath);
+                    config.siad.get('/renter/download/' + req.user.id + "/" + file.hash + "?destination=" + filePath)
                         .then(() => {
                             var stream = fs.createReadStream(filePath);
                             stream.on('error', function () {
@@ -201,22 +196,21 @@ module.exports = function (app, passport, siad) {
                             res.statusCode = 200;
                             res.set({
                                 'Cache-Control': 'public, max-age=31557600',
-                            })
+                            });
                             stream.pipe(res);
-                            //fs.unlink(tmpDir + "/" + req.user.id + "/" + file.filename);
                             fileCache.set(file.hash, file);
                             console.log('Successfully retrieved file from SIA');
                         }).catch((err) => {
-                            file.uploadComplete = false
+                            file.uploadComplete = false;
                             file.save(function (err) {
                                 if (err) {
                                     console.log('An error has occured saving file during update: ' + err);
                                 }
-                            })
+                            });
                             console.log('An error has occured getting files:' + err);
-                        })
+                        });
                 }
-            } else if (file && !file.isAvailable(siad)) {
+            } else if (file && !file.isAvailable(config.siad)) {
                 res.writeHead(404, 'Not Found');
                 res.write('404: File Not Ready');
                 res.end();
@@ -234,25 +228,25 @@ module.exports = function (app, passport, siad) {
                 console.log('An error occured getting file to delete' + err);
                 res.writeHead(503, 'Unknown');
                 res.end();
-                return
+                return;
             }
 
             if (file) {
                 if (file.owner == req.user.id) {
-                    fileCache.del(file.hash)
-                    siad.post('/renter/delete/' + req.user.id + "/" + file.hash).then(() => {
-                        console.log("Successfully deleted file from SIA", err)
+                    fileCache.del(file.hash);
+                    config.siad.post('/renter/delete/' + req.user.id + "/" + file.hash).then(() => {
+                        console.log("Successfully deleted file from SIA", err);
                         File.remove({ _id: file._id }, (err) => {
                             if (err) {
                                 //TODO this is really bad, if this happens we'll be paying for leftover files
-                                console.log("Unable to delete file from mongo")
+                                console.log("Unable to delete file from mongo");
                             } else {
-                                console.log("Successfully deleted from mongo", err)
+                                console.log("Successfully deleted from mongo", err);
                             }
                         });
-                    }).catch((err) => {
-                        console.log("Unable to delete file from sia")
-                    })
+                    }).catch(() => {
+                        console.log("Unable to delete file from sia");
+                    });
                 }
             } else {
                 res.writeHead(404, 'Not Found');

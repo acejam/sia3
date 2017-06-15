@@ -47,7 +47,7 @@ userSchema.methods.toJSON = function() {
       delete obj.google.token;
   }
   return obj;
-}
+};
 
 // create the model for users and expose it to our app
 module.exports = mongoose.model('User', userSchema);

@@ -60,3 +60,4 @@ typings/
 .vscode/launch.json
 .vscode/settings.json
 gce/start-script.sh
+gce/startup-script.sh

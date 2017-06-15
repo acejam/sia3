@@ -27,7 +27,6 @@ module.exports = function (app, passport) {
     app.get('/_ah', function (req, res) {
         config.siad.get('/consensus').then((response) => {
             if (response.data.synced) {
-                console.log("Consensus found");
                 res.end();
             } else {
                 res.writeHead(500, 'Consensus not set');
@@ -101,7 +100,7 @@ module.exports = function (app, passport) {
         // rename it to it's orignal name
         form.on('file', function (field, file) {
             console.log('Got a file: ' + file.name + ". Hash: " + file.hash + ". Size: " + file.size);
-            if (file.size > 1024*1024*1024) {
+            if (file.size > config.Gb) { //1 Gb
                 console.log('Cannot upload files > 1Gb' );   
                 res.writeHead(401, 'Unauthorized');
                 res.write('Cannot upload files >1Gb currently.');

@@ -30,8 +30,11 @@ $('#upload-input').on('change', function () {
     // loop through all the selected files and add them to the formData object
     for (var i = 0; i < files.length; i++) {
       var file = files[i];
-
-      // add the files to formData object for the data payload
+      if (file.size > 1000*1000*1000) {
+       alert('Sorry, only files <1Gb right now.  This file size is: ' + this.files[0].size/1000/1000/1000 + "Gb");
+       return; //TODO not sure how to error here :/
+      }
+       // add the files to formData object for the data payload
       formData.append('uploads[]', file, file.name);
     }
 

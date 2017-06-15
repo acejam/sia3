@@ -38,7 +38,7 @@ config.siad.get('/wallet').then((response) => {
   console.log('Unable to describe wallet' + err);
 });
 
-config.siad.post('/renter?funds=1118199217560000000000000000&period=8820&renewwindow=1000').then(() => {
+config.siad.post('/renter?funds=3905000000000000000000000000000&period=4032&renewwindow=1000').then(() => {
   console.log('Updated renter funds');
 }).catch((err)=> {
   console.log('An error has occured updating wallet funds configuration: \n' + err);

@@ -43,20 +43,19 @@ module.exports = function (app, passport) {
 
     // PROFILE SECTION =========================
     app.get('/profile', isLoggedIn, function (req, res) {
-        config.siad.get('/consensus').then((response) => {
-            var consensusResponse = response;
+        config.siad.get('/consensus').then((consensusResponse) => {
             config.siad.get('/renter/contracts').then((contractsResponse) => {
                 if (contractsResponse.data.contracts && contractsResponse.data.contracts.length > 20) {
                     File.find({ 'owner': req.user.id }, function (err, files) {
                         if (err) {
                             console.log('An error has occured retrieving consensus: \n' + err);
                         }
-                        files.forEach((file) => file.uploadComplete = (fileCache.get(file.hash) || file.isAvailable(siad)));
+                        files.forEach((file) => file.uploadComplete = (fileCache.get(file.hash) || file.isAvailable(config.siad)));
                         res.render('pages/profile.ejs', {
                             user: req.user,
                             consensus: consensusResponse.data,
                             objects: files,
-                            syncing: response.data.synced
+                            syncing: !consensusResponse.data.synced
                         });
                     });
                 } else {
@@ -101,7 +100,7 @@ module.exports = function (app, passport) {
         // every time a file has been uploaded successfully,
         // rename it to it's orignal name
         form.on('file', function (field, file) {
-            console.log('Got a file: ' + file.name + ". Hash: " + file.hash);
+            console.log('Got a file: ' + file.name + ". Hash: " + file.hash + ". Size: " + file.size);
             if (file.size > 1024*1024*1024) {
                 console.log('Cannot upload files > 1Gb' );   
                 res.writeHead(401, 'Unauthorized');

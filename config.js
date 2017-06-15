@@ -1,6 +1,7 @@
 const fs = require('fs');
 import axios from 'axios';
 
+const Gb = 1000*1000*1000;
 const config = {};
 
 config.mongo_db = process.env.MONGO_URL;
@@ -17,7 +18,7 @@ config.google.callback_url = process.env.GOOGLE_OAUTH_CALLBACK;
 config.tmpDir = '/tmp/sia3';
 
 config.lruOptions = {
-    max: 1024 * 1024 * 1024 * 50, //should be 50Gb /shruggie
+    max: Gb * 50, //should be 50Gb /shruggie
     length: function (hash, file) { return file.size; },
     dispose: function (hash) { fs.unlink(config.tmpDir + "/" + hash); }
 };
@@ -28,6 +29,10 @@ config.siad = axios.create ({
     json: true,
     headers: {'User-Agent': 'Sia-Agent'}
 });
+config.maxFileSize = Gb;
+
+
+
 
 config.sessionConfig = {
     secret: config.session_secret, // session secret
